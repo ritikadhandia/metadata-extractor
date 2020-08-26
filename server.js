@@ -58,6 +58,8 @@ app.post('/generatePackage', function(req, res){
 
   	
 	var cookies = cookie.parse(req.headers.cookie);
+	console.log('*******');
+	console.log(cookies);
 	var targetDirName = 'dir_'+cookies.username+'_'+cookies.orgId;
 	
 	let formData = '';
@@ -236,16 +238,23 @@ app.post('/sectionSubmit', function(req, res){
 		})
 		.then((result) => {
 
-			console.log('Login');
-			res.setHeader('Set-Cookie', cookie.serialize('username', result.username, {
+			console.log(result);
+			res.setHeader('Set-Cookie', [
+						cookie.serialize('username', result.username, {
 						    httpOnly: true,
 						    maxAge: 60 * 60 * 24 * 7 // 1 week
-						 }));
+						 }),
+						cookie.serialize('orgId', result.orgId, {
+						    httpOnly: true,
+						    maxAge: 60 * 60 * 24 * 7 // 1 week
+						})
+			]);
+			/*
 			res.setHeader('Set-Cookie', cookie.serialize('orgId', result.orgId, {
 						    httpOnly: true,
 						    maxAge: 60 * 60 * 24 * 7 // 1 week
 						}));
-
+			*/
 	  		
 	  		sfdx.mdapi.describemetadata({
 	  			targetusername: 'DevOrg'
