@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+  <link rel="stylesheet" type="text/css" href="/stylesheets/main.css" />
+  
+  <script
+  src="https://code.jquery.com/jquery-3.4.1.js"
+  integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU="
+  crossorigin="anonymous"></script>
+
+</head>
+
+<body>
+
+  <div class="titleDiv">
+    <div class="title">Metadata Extractor</div>
+    <img class="titleImg" src="/images/download.png">
+  </div>
+
+  <form action="/sectionSubmit" enctype="multipart/form-data" method="post">
+    <div class="optionsDiv">
+      <div class="sectionDiv">
+        <div class="sectionTitle">Step 1. Login</div>
+        <div class="formDiv">
+          <div class="formOption">
+            <label>Choose Instance Type</label>
+            <select name="instanceType">
+              <option value="Sandbox">Sandbox</option>
+              <option value="Prodcution">Production</option>
+            </select>
+          </div>
+          <div class="formOption alignLeft">
+            <input type="submit" value="Login" />
+          </div>
+        </div>
+      </div>
+      <div class="sectionDiv">
+        <div class="sectionTitle">Step 2. Select Metadata Type OR Select All Modified</div>
+        <% if(displaySection == 'chooseMetadata') { %>
+        <div class="formDiv">
+          <div class="formOption">
+            <label>Choose Modified Range</label>
+            <select id="timeSelect" name="timeSelect">
+              <option value="1">Last 1 Day</option>
+              <option value="3">Last 3 Days</option>
+              <option value="5">Last 5 Days</option>
+              <option value="7">Last 7 Days</option>
+            </select>
+          </div>
+          <div class="formOption">
+            <input type="button" value="Fetch and Add to Cart" onclick="fetchMetadataModified()"/>
+          </div>
+        </div>
+        <div>OR</div>
+        <div class="formDiv" >
+          <div class="formOption">
+            <label>Choose MetadataType</label>
+            <select id="metadataSelect" name="metadataSelect" onchange="fetchFolderNames(this.value)">
+
+            </select>
+          </div>
+          <div class="formOption hide" id="folderDiv">
+            <label>Choose Folder</label>
+            <select id="folderSelect" name="folderSelect">
+
+            </select>
+          </div>
+          <div class="formOption">
+            <input type="button" value="Fetch" onclick="fetchMetadata()"/>
+          </div>
+        </div>
+        <% } %>
+      </div>
+
+      <div class="sectionDiv">
+        <div class="sectionTitle">Step 3. Choose Metadata 
+          <input type="button" value="Add To Cart" onclick="addToList()"/>            
+        </div>
+        <div class="formOption metadata hide" id="metadataChoose">
+        </div>
+      </div>
+    </div>
+    <div class="selectedDiv">
+      <div class="sectionDiv">
+        <div class="sectionTitle">
+          <div style="display:inline-block;margin-right:5px;">Selected Components</div>
+          <input type="button" value="Clear" onclick="clearList()"/>
+        </div>
+      </div>
+      <div>
+        <div class="buttonDiv" id="generateButtonDiv" ></div>
+        <div class="buttonDiv" id="downloadButtonDiv" ></div>
+      </div>
+      <div id="selectedList" class="selectedComponents"></div>
+    </div>
+  </form>
+
+<script>
+
+
+  var options = <%- JSON.stringify(types) %>;
+  var metadataSelect = document.getElementById("metadataSelect");
+  if (typeof(metadataSelect) != 'undefined' && metadataSelect != null){
+    metadataSelect.innerHTML = '';
+
+    for(var i=0; i<options.length; i++){
+      var newOption = document.createElement("option");
+      newOption.text = options[i];
+      newOption.value = options[i];
+      metadataSelect.appendChild(newOption);
+    }
+  }
+
+  var setSelectedComponents = new Set();
+  var mapSelectedComponents = new Map();
+
+  function getComponentName(){
+    var selectedComponentArray=[];
+    var isAllSelected = $('.AllSelect').is(":checked");
+    var metadatName = getMetadataName();
+    if(isAllSelected && !(metadatName == 'EmailTemplate' || metadatName == 'Report'|| metadatName == 'Dashboard')){
+      selectedComponentArray.push({'type':metadatName, 'fullName':'*'});
+      return selectedComponentArray;
+    }
+    else {
+      $( ".metadataSelect:checkbox:checked" ).each(function () {
+        selectedComponentArray.push({'type':metadatName, 'fullName':$(this).val()});
+      });
+    }
+    return selectedComponentArray;
+  }
+
+  function getMetadataName(){
+    return $('#metadataSelect').val();
+  }
+
+
+/*
+  function addToListCustom(metaType,elementSelected){
+    if(!mapSelectedComponents.has(metaType)){
+     mapSelectedComponents.set(metaType,new Set());
+     $('#selectedList').append($('<ul/>',{id:metaType,text:metaType}));
+    }
+    if(!mapSelectedComponents.get(metaType).has(elementSelected)){
+     mapSelectedComponents.get(metaType).add(elementSelected);
+     $(`#${metaType}`).append($('<li/>',{id:metaType+elementSelected,text:elementSelected,onclick:'removeFromList();'}));
+    }
+}
+*/
+
+  function addGenerateButton(){
+    var butDiv = document.getElementById("generateButtonDiv");
+    var element =  document.getElementById("generateButton");
+
+    if (typeof(element) == 'undefined' || element == null){
+      var genButton = document.createElement("input");
+      genButton.type = "button";
+      genButton.id = "generateButton";
+      genButton.value = "Generate Package";
+      genButton.onclick = function(){generatePackage()};
+      butDiv.appendChild(genButton);
+    }
+    document.getElementById("downloadButtonDiv").innerHTML = "";
+  }
+
+  function addToList(){
+    let elementSelectedArray = getComponentName();   
+    addToSelectedList(elementSelectedArray);
+  }
+
+  function addListItem(elementSelected){
+
+    var liItem = document.createElement('div'); 
+    liItem.className = "componentItem";
+    liItem.id = elementSelected.type + '|' + elementSelected.fullName;
+    var liDiv = document.createElement('div');
+    liDiv.innerHTML = elementSelected.fullName;
+    liDiv.className="liDivName";
+    var liRemoveDiv = document.createElement('div');
+    liRemoveDiv.innerHTML = 'X';
+    liRemoveDiv.className="liDivRem";
+    liRemoveDiv.onclick = removeFunction;
+
+    liItem.appendChild(liRemoveDiv);
+    liItem.appendChild(liDiv);
+    
+
+    return liItem;
+
+  }
+
+  function addToSelectedList(elementSelectedArray){
+
+    for(var m= 0; m <elementSelectedArray.length;m++ ){
+
+      var elementSelected = elementSelectedArray[m];
+      var metaType = elementSelected.type;
+      if(!mapSelectedComponents.has(metaType)){
+        mapSelectedComponents.set(metaType,new Set());
+
+        var componentDiv = document.createElement("div");
+        componentDiv.className="componentDiv";
+        componentDiv.id=metaType;
+
+        var titleDiv = document.createElement("div");
+        titleDiv.className="componentTitleDiv";
+        titleDiv.innerHTML=metaType;
+        componentDiv.appendChild(titleDiv);
+        document.getElementById("selectedList").appendChild(componentDiv);
+      }
+
+      if(!mapSelectedComponents.get(metaType).has(elementSelected.fullName)){
+        mapSelectedComponents.get(metaType).add(elementSelected.fullName);
+        document.getElementById(metaType).appendChild(addListItem(elementSelected));
+      }
+    }
+    
+    // Add Generate Button
+    addGenerateButton();
+    console.log(mapSelectedComponents);
+  }
+
+  var removeFunction = function(){
+    document.getElementById("downloadButtonDiv").innerHTML = "";
+    let elementSelectedArray = [];
+    let elementId = event.target.parentNode.id;
+    let metaType = elementId.split('|')[0];
+    let fullname = elementId.split('|')[1];
+
+    if(mapSelectedComponents.get(metaType).has(fullname)){
+      mapSelectedComponents.get(metaType).delete(fullname);
+      document.getElementById(elementId).remove();
+      if(mapSelectedComponents.get(metaType).size == 0){
+        mapSelectedComponents.delete(metaType);
+        document.getElementById(metaType).remove();
+      } 
+    }
+      /*
+      if(event.target.tagName==='LI'){
+       var elementSelected = event.target.innerHTML;    
+       elementSelectedArray.push(elementSelected);
+       metaType = event.target.parentNode.id;
+      }
+      else if(event.target.tagName==='A'){
+       elementSelectedArray = getComponentName();    
+       metaType = getMetadataName();   
+      }
+      for(var m= 0; m< elementSelectedArray.length;m++){
+     elementSelected = elementSelectedArray[m];
+     if(mapSelectedComponents.get(metaType).has(elementSelected.fullName)){
+      mapSelectedComponents.get(metaType).delete(elementSelected.fullName);
+      $(`#${metaType}${elementSelected}`).remove();
+      if(mapSelectedComponents.get(metaType).size===0){
+          $(`#${metaType}`).remove();
+          mapSelectedComponents.delete(metaType);
+      }
+      //setSelectedComponents.forEach(iter=>$('#selectedList').append($('<li/>',{text:iter,onclick:'removeFromList();'})));
+     }
+      }
+    */
+  }
+
+  function enableAllMetadata(){
+    $( ".metadataSelect" ).click(function() {
+      //alert( "Handler for .click() called." );
+      var selectedElementClasses = $(this).attr('class');
+      //user has selected either ALL or deselected ALL
+      if (selectedElementClasses.indexOf('AllSelect') != -1){
+        var isChecked = $(this).prop('checked');
+        if(isChecked){
+          $('.individualSelect').prop('checked', true);
+        }
+        else{
+          $('.individualSelect').prop('checked', false); 
+        } 
+      }
+    });
+  }
+
+  function generatePackage(){
+    alert('A Package will be generated and metadata will be downloaded. Please wait for Download button to appear');
+    on();
+    document.getElementById("downloadButtonDiv").innerHTML = "";
+    console.log(mapToObj(mapSelectedComponents));
+    
+    var formD = JSON.stringify(mapToObj(mapSelectedComponents));
+    console.log(formD);
+    var xhttp = new XMLHttpRequest();
+    xhttp.open("POST", "/generatePackage", true);
+    xhttp.onreadystatechange = function() {
+      if(this.readyState == 4 && this.status == 200){
+
+        var downloadLink = document.createElement("a");
+        downloadLink.href = "/downloadFile";
+        downloadLink.innerHTML = "Download Zip";
+        downloadLink.className = "downloadLink"
+        document.getElementById("downloadButtonDiv").appendChild(downloadLink);   
+        off();     
+      }
+    }
+    xhttp.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+    xhttp.send(formD);
+    
+  }
+
+  function fetchMetadataModified(){
+    on();
+    var timeRange = document.getElementById('timeSelect').value;
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+        console.log(this.response);
+        var jsonResponse = JSON.parse(this.response);
+        addToSelectedList(jsonResponse);
+        off();
+      }
+    }
+    xhttp.open("GET", "/fetchModifiedMetadata?timeRange="+timeRange, true);
+    xhttp.send();
+  }
+
+  function fetchMetadata(){
+    on();
+    var metadata = document.getElementById('metadataSelect').value;
+    var folder = document.getElementById('folderSelect').value;
+
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+
+        var jsonResponse = JSON.parse(this.response);
+        metadataChoose = document.getElementById("metadataChoose");
+        metadataChoose.innerHTML = '';
+
+        for(var i=0; i< jsonResponse.length; i++){
+
+          if(i==0){
+              //add ALL option
+              var newDiv = document.createElement("div");
+              var newOption = document.createElement("input");
+              newOption.type = "checkbox";
+              newOption.value = 'All';
+              newOption.id = 'All';
+              newOption.name = 'All';
+              newOption.className= 'metadataSelect AllSelect';
+              newDiv.appendChild(newOption);
+              var newLabel = document.createElement("label");
+              newLabel.for = 'All';
+              newLabel.innerHTML = 'All';
+              newDiv.appendChild(newLabel);
+
+              metadataChoose.appendChild(newDiv);
+          }
+          var newDiv = document.createElement("div");
+
+          var newOption = document.createElement("input");
+          newOption.type = "checkbox";
+          newOption.className= 'metadataSelect individualSelect';
+          newOption.value = jsonResponse[i].fullName;
+          newOption.id = jsonResponse[i].fullName;
+          newOption.name = jsonResponse[i].fullName;
+          newDiv.appendChild(newOption);
+
+
+          var newLabel = document.createElement("label");
+          newLabel.for = jsonResponse[i].fullName;
+          newLabel.innerHTML = jsonResponse[i].fullName;
+
+          newDiv.appendChild(newLabel);
+
+          metadataChoose.appendChild(newDiv);
+
+        }
+        enableAllMetadata();
+        document.getElementById("metadataChoose").classList.remove("hide");
+        off();
+      }
+    };
+
+    xhttp.open("GET", "/fetchMetadata?metadataType="+metadata+"&folderName="+folder, true);
+    xhttp.send();
+  }
+
+  function clearList(){
+    mapSelectedComponents = new Map();  
+    document.getElementById("selectedList").innerHTML = "";
+    document.getElementById("generateButtonDiv").innerHTML = "";
+  }
+
+
+  
+  function fetchFolderNames(selectedMetadataType){
+    var metadata = document.getElementById('metadataSelect').value;
+    if(metadata == 'EmailTemplate' ||
+      metadata == 'Dashboard' ||
+      metadata == 'Document' ||
+      metadata == 'Report'){
+      on();
+      var xhttp = new XMLHttpRequest();
+      xhttp.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+
+          var folders = this.response;
+          var jsonResponse = JSON.parse(this.response);
+          console.log(jsonResponse);
+          var folderSelect = document.getElementById("folderSelect");
+
+          for(var i=0; i< jsonResponse.length; i++){
+            console.log(jsonResponse[i].fullName);
+            var newOption = document.createElement("option");
+            newOption.text = jsonResponse[i].fullName;
+            newOption.value = jsonResponse[i].fullName;
+            folderSelect.appendChild(newOption);
+          }
+
+          document.getElementById("folderDiv").classList.remove("hide");
+          off();
+        }
+      };
+      xhttp.open("GET", "/fetchFolderNames?metadataType="+metadata, true);
+      xhttp.send();
+    }
+    else{
+      document.getElementById("folderDiv").classList.add("hide");
+    }
+  }
+  
+  function on() {
+    document.getElementById("overlay").style.display = "block";
+  }
+
+  function off() {
+    document.getElementById("overlay").style.display = "none";
+  }
+
+  function mapToObj(map){
+      var obj = {}
+      map.forEach(function(v, k){
+        obj[k] = [];
+          v.forEach(function(val){
+            obj[k].push(val)  
+          })
+      })
+      return obj;
+  }
+
+</script>
+
+<div id="overlay">
+  <div class="loader"></div>
+</div>
+
+</body>
+</html>
