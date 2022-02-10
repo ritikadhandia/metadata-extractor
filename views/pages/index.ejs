@@ -40,13 +40,16 @@
         <% if(displaySection == 'chooseMetadata') { %>
         <div class="formDiv">
           <div class="formOption">
-            <label>Choose Modified Range</label>
-            <select id="timeSelect" name="timeSelect">
+            <label>Choose Modified Range (Number of Days)</label>
+            <input type="number" name="timeSelect" min="1" max="60" value="1" id="timeSelect">
+            <!--<select id="timeSelect" name="timeSelect">
               <option value="1">Last 1 Day</option>
-              <option value="3">Last 3 Days</option>
-              <option value="5">Last 5 Days</option>
+              <option value="3">Last 5 Days</option>
               <option value="7">Last 7 Days</option>
-            </select>
+              <option value="15">Last 15 Days</option>
+              <option value="30">Last 30 Days</option>
+              <option value="60">Last 60 Days</option>
+            </select>-->
           </div>
           <div class="formOption">
             <input type="button" value="Fetch and Add to Cart" onclick="fetchMetadataModified()"/>
@@ -136,19 +139,6 @@
   }
 
 
-/*
-  function addToListCustom(metaType,elementSelected){
-    if(!mapSelectedComponents.has(metaType)){
-     mapSelectedComponents.set(metaType,new Set());
-     $('#selectedList').append($('<ul/>',{id:metaType,text:metaType}));
-    }
-    if(!mapSelectedComponents.get(metaType).has(elementSelected)){
-     mapSelectedComponents.get(metaType).add(elementSelected);
-     $(`#${metaType}`).append($('<li/>',{id:metaType+elementSelected,text:elementSelected,onclick:'removeFromList();'}));
-    }
-}
-*/
-
   function addGenerateButton(){
     var butDiv = document.getElementById("generateButtonDiv");
     var element =  document.getElementById("generateButton");
@@ -236,29 +226,7 @@
         document.getElementById(metaType).remove();
       } 
     }
-      /*
-      if(event.target.tagName==='LI'){
-       var elementSelected = event.target.innerHTML;    
-       elementSelectedArray.push(elementSelected);
-       metaType = event.target.parentNode.id;
-      }
-      else if(event.target.tagName==='A'){
-       elementSelectedArray = getComponentName();    
-       metaType = getMetadataName();   
-      }
-      for(var m= 0; m< elementSelectedArray.length;m++){
-     elementSelected = elementSelectedArray[m];
-     if(mapSelectedComponents.get(metaType).has(elementSelected.fullName)){
-      mapSelectedComponents.get(metaType).delete(elementSelected.fullName);
-      $(`#${metaType}${elementSelected}`).remove();
-      if(mapSelectedComponents.get(metaType).size===0){
-          $(`#${metaType}`).remove();
-          mapSelectedComponents.delete(metaType);
-      }
-      //setSelectedComponents.forEach(iter=>$('#selectedList').append($('<li/>',{text:iter,onclick:'removeFromList();'})));
-     }
-      }
-    */
+    
   }
 
   function enableAllMetadata(){
@@ -279,7 +247,7 @@
   }
 
   function generatePackage(){
-    alert('A Package will be generated and metadata will be downloaded. Please wait for Download button to appear');
+    alert('A Package will be generated. Please wait for Download button to appear');
     on();
     document.getElementById("downloadButtonDiv").innerHTML = "";
     console.log(mapToObj(mapSelectedComponents));
@@ -291,11 +259,13 @@
     xhttp.onreadystatechange = function() {
       if(this.readyState == 4 && this.status == 200){
 
+        
         var downloadLink = document.createElement("a");
         downloadLink.href = "/downloadFile";
-        downloadLink.innerHTML = "Download Zip";
+        downloadLink.innerHTML = "Download package";
         downloadLink.className = "downloadLink"
         document.getElementById("downloadButtonDiv").appendChild(downloadLink);   
+        
         off();     
       }
     }
@@ -307,6 +277,7 @@
   function fetchMetadataModified(){
     on();
     var timeRange = document.getElementById('timeSelect').value;
+    console.log(timeRange);
     var xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function() {
       if (this.readyState == 4 && this.status == 200) {
@@ -330,6 +301,7 @@
       if (this.readyState == 4 && this.status == 200) {
 
         var jsonResponse = JSON.parse(this.response);
+        console.log(jsonResponse);
         metadataChoose = document.getElementById("metadataChoose");
         metadataChoose.innerHTML = '';
 

@@ -46,7 +46,7 @@ app.get('/services/oauth2/authorize', function(req, res){
 
 app.get('/', function(req, res){
 	console.log('1');
-  	
+
 	res.render('pages/index', {
     	displaySection:'login',
     	types: {},
@@ -68,8 +68,13 @@ app.post('/generatePackage', function(req, res){
 	})
 	req.on('end', () => {
 		generatePackageXML(formData, targetDirName);
-	})
+		res.setHeader('Content-type', 'text/plain');
+		res.status(200);
+		res.write('Done James');
+		res.end();
+	});
 
+	/*
 	sfdx.mdapi.retrieve({
         targetusername: 'DevOrg',
         RETRIEVETARGETDIR: 'downloads/'+targetDirName,
@@ -83,6 +88,7 @@ app.post('/generatePackage', function(req, res){
 		res.write('Done James');
 		res.end();
 	})
+	*/
 	
 	//initiatePackageDownload()
 });
@@ -91,10 +97,10 @@ app.get('/downloadFile', (req, res) => {
 
 	var cookies = cookie.parse(req.headers.cookie);
 	var targetDirName = 'dir_'+cookies.username+'_'+cookies.orgId;
-	let filePath = 'downloads/'+targetDirName+'/unpackaged.zip'
-	res.download(filePath, 'retrievedMetadata.zip', function(err){
+	let filePath = 'downloads/'+targetDirName+'/CustomPackage.xml'
+	res.download(filePath, 'Package.xml', function(err){
   		//CHECK FOR ERROR
-  		fs.unlink(filePath, function(err){
+		fs.unlink(filePath, function(err){
   			console.log('File Removed');
   		});
 	});
@@ -139,6 +145,7 @@ app.get('/fetchFolderNames', function(req, res){
 app.get('/fetchModifiedMetadata', function(req, res){
 
 	var timeRange = req.query.timeRange * (-1);
+	console.log(timeRange);
 	var metadataTypeArray = [];
 	var metadataList = [];
 	console.log('fetchModifiedMetadata');
@@ -312,7 +319,7 @@ Date.prototype.addDays = function(days) {
 }
 
 function fetchAllOtherMetadataTypes(metadataTypeList,resolve){
-	console.log('fetchAllOtherMetadata');
+	console.log('Fetching AllOtherMetadata');
 	sfdx.mdapi.describemetadata({
 		targetusername: 'DevOrg'
 	})
@@ -338,7 +345,7 @@ function fetchFolderedMetadata(metadataList,resolve, timeRange, type){
 	
 	var rangeDate = new Date().addDays(timeRange);
 	var rangeDateStr = rangeDate.toISOString();
-	console.log('fetchEmailTemplateNames');
+	console.log('Fetching ' + type);
 	sfdx.data.soqlQuery({
         targetusername: 'DevOrg',
         resultformat:'json',
@@ -360,7 +367,7 @@ function fetchFolderedMetadata(metadataList,resolve, timeRange, type){
 }
 
 function fetchAllModifiedMetadata(metadataList, metadataType, resolve, timeRange){
-	console.log(metadataType);
+	console.log('Fetching ' + metadataType);
 	sfdx.mdapi.listmetadata({
 								metadatatype: metadataType,
 								targetusername: 'DevOrg'	
